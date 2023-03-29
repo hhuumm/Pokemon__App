@@ -7,7 +7,6 @@ ASP.NET Core 5.0
 Razor Pages
 Bootstrap 5.0
 HttpClient
-Newtonsoft.Json
 
 ## Installation
 To run this application, you'll need to have the following installed on your machine:
