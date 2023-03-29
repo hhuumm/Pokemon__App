@@ -1,0 +1,223 @@
+﻿@page "/"
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@using Pokemon__App.Models
+
+
+<PageTitle>Index</PageTitle>
+
+<h1>Hello, Cobblestone!</h1>
+
+<h2>Welcome to the Pokémon Assessment </h2>
+
+<h3> There is an upload csv page for you in the sidebar to the left to upload the pokemon csv, the data will be reflected to the connected db in your appsetting.json with the appropriate modifications</h3>
+
+<div style="display: flex; flex-direction: column;">
+    <div>
+        <label for="searchField">Search: </label>
+        <input id="searchField" type="text" @bind-value="searchTerm" />
+
+    </div>
+
+    <div>
+        <label for="hpField">HP:</label>
+        <input id="hpField" type="text" @bind-value="hp" />
+        <label>
+            <input type="radio" name="filterTypeHp" value="gthp" checked="@isGreaterThanHp" @onchange="@(() => isGreaterThanHp = true)"> Greater than
+        </label>
+        <label>
+            <input type="radio" name="filterTypeHp" value="lthp" checked="@(!isGreaterThanHp)" @onchange="@(() => isGreaterThanHp = false)"> Less than
+        </label>
+    </div>
+
+    <div>
+        <label for="attackField">Attack:</label>
+        <input id="attackField" type="text" @bind-value="attack" />
+         <label>
+        <input type="radio" name="filterTypeAtk" value="gtAtk" checked="@isGreaterThanAtk" @onchange="@(() => isGreaterThanAtk = true)"> Greater than
+    </label>
+    <label>
+        <input type="radio" name="filterTypeAtk" value="ltAtk" checked="@(!isGreaterThanAtk)" @onchange="@(() => isGreaterThanAtk = false)"> Less than
+    </label>
+    </div>
+
+    <div>
+        <label for="defenseField">Defense:</label>
+        <input id="defenseField" type="text" @bind-value="defense" />
+        <label>
+            <input type="radio" name="filterTypeDef" value="gtDef" checked="@isGreaterThanDef" @onchange="@(() => isGreaterThanDef = true)"> Greater than
+        </label>
+        <label>
+            <input type="radio" name="filterTypeDef" value="ltDef" checked="@(!isGreaterThanDef)" @onchange="@(() => isGreaterThanDef = false)"> Less than
+        </label>
+    </div>
+
+    <div>
+        <button @onclick="SearchPokemon">Search</button>
+    </div>
+</div>
+
+@if (pokemonList != null && pokemonList.Any())
+{
+    
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type 1</th>
+                    <th>Type 2</th>
+                    <th>Total</th>
+                    <th>HP</th>
+                    <th>Attack</th>
+                    <th>Defense</th>
+                    <th>Special Attack</th>
+                    <th>Special Defense</th>
+                    <th>Speed</th>
+                    <th>Generation</th>
+                    <th>Legendary</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var pokemon in pokemonList)
+            {
+                <tr>
+                    <td>@pokemon.Name</td>
+                    <td>@pokemon.Type1</td>
+                    <td>@pokemon.Type2</td>
+                    <td>@pokemon.Total</td>
+                    <td>@pokemon.HP</td>
+                    <td>@pokemon.Attack</td>
+                    <td>@pokemon.Defense</td>
+                    <td>@pokemon.SpecialAttack</td>
+                    <td>@pokemon.SpecialDefense</td>
+                    <td>@pokemon.Speed</td>
+                    <td>@pokemon.Generation</td>
+                    <td>@pokemon.Legendary</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+
+       <!-- Add pagination buttons to the bottom of the table -->
+    <div>
+        @if (index > 1)
+        {
+            <button @onclick="GoToPreviousPage">Prev</button>
+        }
+        @if (hasNext)
+        {
+            <button @onclick="GoToNextPage">Next</button>
+        }
+    </div>
+
+} else
+{
+    if(searchTerm.Length>0 && index == 1)
+    {
+        <p>No results for @searchTerm</p>
+    } else
+    {
+        <p>The database has no Pokemon in it.</p>
+    }
+}
+
+
+@code {
+    private List<Pokemon> pokemonList = new List<Pokemon>();
+    public int index = 1;
+    public string searchTerm = "";
+    public string hp = "";
+    public string attack = "";
+    public string defense = "";
+    public bool isGreaterThanHp = true;
+    public bool isGreaterThanAtk = true;
+    public bool isGreaterThanDef = true;
+    public string GTHP = "gte";
+    public string GTATK = "gte";
+    public string GTDEF = "gte";
+    public bool hasNext = false;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshPokemonList();
+    }
+
+    private async Task RefreshPokemonList()
+    {
+        var baseUri = new Uri("https://localhost:7179");
+        var httpClient = new HttpClient { BaseAddress = baseUri };
+
+        var queryString = "";
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+            queryString += $"&search={searchTerm}";
+        }
+        if (!string.IsNullOrEmpty(hp))
+        {
+            GTHP = isGreaterThanHp ? "gte" : "lte";
+
+            queryString += $"&hp[{GTHP}]={hp}";
+        }
+        if (!string.IsNullOrEmpty(attack))
+        {
+            GTATK = isGreaterThanAtk ? "gte" : "lte";
+
+            queryString += $"&attack[{GTATK}]={attack}";
+        }
+        if (!string.IsNullOrEmpty(defense))
+        {
+            GTDEF = isGreaterThanDef ? "gte" : "lte";
+            queryString += $"&defense[{GTDEF}]={defense}";
+        }
+
+        // Make the API call to retrieve the Pokemon list with filters applied
+        var response = await httpClient.GetAsync($"/api/Pokemon?page={index}{queryString}");
+        var nextResponse = await httpClient.GetAsync($"/api/Pokemon?page={index+1}{queryString}");
+
+        if (response.IsSuccessStatusCode)
+        {
+            // Deserialize the JSON response into a list of Pokemon
+            pokemonList = await response.Content.ReadFromJsonAsync<List<Pokemon>>();
+            if (nextResponse.IsSuccessStatusCode)
+            {
+                var nextPokemonList = await nextResponse.Content.ReadFromJsonAsync<List<Pokemon>>();
+                hasNext = nextPokemonList.Any()?true:false;
+            }
+        }
+        else
+        {
+            // Prompt that the db has no Pokemon in it
+            Console.WriteLine($"Error: {response.StatusCode}");
+            pokemonList = null;
+        }
+    }
+
+    private async Task  SearchPokemon()
+    {
+        index = 1;
+        await RefreshPokemonList();
+        
+    }
+
+    private async Task GoToPreviousPage()
+    {
+        if (index > 1)
+        {
+            index--;
+            await RefreshPokemonList();
+        }
+    }
+
+    private async Task GoToNextPage()
+    {
+        if (pokemonList != null && pokemonList.Count == 20)
+        {
+            index++;
+            await RefreshPokemonList();
+        }
+    }
+
+
+}

@@ -1,0 +1,141 @@
+﻿@page "/upload"
+@using Pokemon__App.Models
+@using Microsoft.AspNetCore.Components.Forms
+@inject HttpClient httpClient
+@inject NavigationManager NavigationManager
+
+
+
+
+@if (error.Length > 0)
+{
+    <h1>@error</h1>
+}
+<InputFile OnChange="@(async (e) => await HandleFileSelected(e))" />
+@if (pokemonList != null && pokemonList.Any())
+{
+    <br />
+    <button @onclick="SavePokemon">Save as CSV</button>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type 1</th>
+                <th>Type 2</th>
+                <th>Total</th>
+                <th>HP</th>
+                <th>Attack</th>
+                <th>Defense</th>
+                <th>Special Attack</th>
+                <th>Special Defense</th>
+                <th>Speed</th>
+                <th>Generation</th>
+                <th>Legendary</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var pokemon in pokemonList)
+            {
+                <tr>
+                    <td>@pokemon.Name</td>
+                    <td>@pokemon.Type1</td>
+                    <td>@pokemon.Type2</td>
+                    <td>@pokemon.Total</td>
+                    <td>@pokemon.HP</td>
+                    <td>@pokemon.Attack</td>
+                    <td>@pokemon.Defense</td>
+                    <td>@pokemon.SpecialAttack</td>
+                    <td>@pokemon.SpecialDefense</td>
+                    <td>@pokemon.Speed</td>
+                    <td>@pokemon.Generation</td>
+                    <td>@pokemon.Legendary</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+   
+}
+
+@code {
+    private List<Pokemon> pokemonList;
+    private string error = "";
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.GetMultipleFiles().FirstOrDefault();
+        if (file != null)
+        {
+            var content = await new StreamReader(file.OpenReadStream()).ReadToEndAsync();
+            pokemonList = ParseCsv(content);
+        }
+    }
+
+    //Filter the Pokemon frpm CSV
+    private List<Pokemon> ParseCsv(string content)
+    {
+        var lines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+        var pokemonList = new List<Pokemon>();
+        foreach (var line in lines.Skip(1)) // skip header row
+        {
+            var parts = line.Split(',');
+            var pokemon = new Pokemon
+                {
+                    Name = parts[1],
+                    Type1 = parts[2],
+                    Type2 = parts[3],
+                    Total = int.Parse(parts[4]),
+                    HP = int.Parse(parts[5]),
+                    Attack = int.Parse(parts[6]),
+                    Defense = int.Parse(parts[7]),
+                    SpecialAttack = int.Parse(parts[8]),
+                    SpecialDefense = int.Parse(parts[9]),
+                    Speed = int.Parse(parts[10]),
+                    Generation = int.Parse(parts[11]),
+                    Legendary = bool.Parse(parts[12])
+                };
+
+            //Add conditionals
+            if (!pokemon.Legendary && !(pokemon.Type1 == "Ghost" || pokemon.Type2 == "Ghost"))
+            {
+                if (pokemon.Type1 == "Steel" || pokemon.Type2 == "Steel") { pokemon.HP += pokemon.HP; }
+                if (pokemon.Type1 == "Fire" || pokemon.Type2 == "Fire") { pokemon.Attack = (int)(pokemon.Attack * .9); }
+                if ((pokemon.Type1 == "Bug" && pokemon.Type2 == "Flying") || (pokemon.Type1 == "Flying" && pokemon.Type2 == "Bug")) { pokemon.Speed = (int)(pokemon.Attack * 1.1); }
+                if (pokemon.Name[0] == 'G'){
+                    foreach (char c in pokemon.Name)
+                    {
+                        if (c != 'G')
+                        {
+                            pokemon.Defense += 5;
+                        }
+                    }
+                }
+
+
+                pokemonList.Add(pokemon);
+            }
+
+        }
+        return pokemonList;
+    }
+
+    //Save the Pokemon
+    private async Task SavePokemon()
+    {
+        // Send the Pokemon list to the API endpoint for saving to the database
+        var baseUri = new Uri("https://localhost:7179");
+        var httpClient = new HttpClient { BaseAddress  = baseUri};
+        var response = await httpClient.PostAsJsonAsync("/api/Pokemon", pokemonList);
+        if (response.IsSuccessStatusCode)
+        {
+            // Redirect to the home page
+            NavigationManager.NavigateTo("/");
+        }
+        else
+        {
+            var errorResponse = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"Error: {errorResponse}");
+
+            error = errorResponse;
+        }
+    }
+}
