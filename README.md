@@ -12,7 +12,7 @@ HttpClient
 To run this application, you'll need to have the following installed on your machine:
 .NET Core SDK
 
-#To get started:
+# To get started:
 Clone the repository: git clone https://github.com/hhuumm/Pokemon__App.git
 Change into the project directory: cd pokemon-app
 Restore the packages: dotnet restore
